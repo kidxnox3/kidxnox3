@@ -2,9 +2,10 @@ name: Ping API
 
 on:
   schedule:
-    - cron: "* * * * *"   # ทุก 1 นาที (UTC) — อาจคลาดเคลื่อนเล็กน้อยตาม SLA ของ Actions
+    - cron: "* * * * *"   # รันทุก 1 นาที (UTC)
   workflow_dispatch:
 
+# กันงานคาบเกี่ยว ถ้ายังรันไม่เสร็จในรอบก่อน
 concurrency:
   group: ping-api
   cancel-in-progress: false
@@ -12,86 +13,21 @@ concurrency:
 jobs:
   ping:
     runs-on: ubuntu-latest
-    env:
-      # ปรับได้: ให้ job fail เมื่อ status != 200 (true) หรือไม่ (false)
-      FAIL_ON_NON_200: "true"
-      # ตั้งค่าจาก Secrets เพื่อความปลอดภัย
-      TARGET_URL: ${{ secrets.PING_URL }}           # เช่น https://api.kiddy.wtf/
-      REQUEST_BODY: ${{ secrets.PING_BODY }}        # เช่น {"mobile":"0000000000","voucher":"ping"}
-      REQUEST_HEADERS: ${{ secrets.PING_HEADERS }}  # เช่น {"Content-Type":"application/json","User-Agent":"KeepAliveBot/1.0"}
-      TIMEOUT: "20"   # วินาที
-      RETRIES: "2"    # จำนวน retry ถ้าไม่สำเร็จ
     steps:
-      - name: Validate inputs
+      - name: Call API
         run: |
-          if [ -z "${TARGET_URL}" ]; then
-            echo "❌ Missing PING_URL secret"; exit 1
+          response=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST https://api.kiddy.wtf/ \
+            -H "Content-Type: application/json" \
+            -d '{"mobile":"0000000000","voucher":"ping"}')
+
+          # แยก body กับ status code
+          body=$(echo "$response" | sed -e 's/HTTPSTATUS\:.*//g')
+          status=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+
+          if [ "$status" -eq 200 ]; then
+            echo "✅ OK - Status: $status - $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          else
+            echo "⚠️ FAIL - Status: $status - $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "Body: $body"
+            exit 1
           fi
-          # Default headers ถ้าไม่ได้ใส่
-          if [ -z "${REQUEST_HEADERS}" ]; then
-            REQUEST_HEADERS='{"Content-Type":"application/json"}'
-            echo "Using default headers: ${REQUEST_HEADERS}"
-            echo "REQUEST_HEADERS=${REQUEST_HEADERS}" >> $GITHUB_ENV
-          fi
-
-      - name: Build curl header args from JSON
-        id: headers
-        run: |
-          python3 - <<'PY'
-import json, os
-hdr = os.environ.get("REQUEST_HEADERS","{}")
-try:
-    d = json.loads(hdr)
-except Exception as e:
-    print("Invalid REQUEST_HEADERS JSON:", e)
-    exit(1)
-args = []
-for k,v in d.items():
-    args += ["-H", f"{k}: {v}"]
-print("::set-output name=args::" + " ".join(args))
-PY
-
-      - name: Ping with retry
-        shell: bash
-        run: |
-          set -e
-          method="POST" # ปรับเป็น GET ถ้าต้องการ
-          headers_args="${{ steps.headers.outputs.args }}"
-          body="${REQUEST_BODY}"
-
-          send_req () {
-            if [ "$method" = "POST" ]; then
-              curl -sS --max-time "${TIMEOUT}" -X POST ${headers_args} \
-                -d "${body}" -w "HTTPSTATUS:%{http_code}" "${TARGET_URL}"
-            else
-              curl -sS --max-time "${TIMEOUT}" ${headers_args} \
-                -w "HTTPSTATUS:%{http_code}" "${TARGET_URL}"
-            fi
-          }
-
-          attempt=0
-          while true; do
-            attempt=$((attempt+1))
-            response="$(send_req || true)"
-            body="$(echo "$response" | sed -e 's/HTTPSTATUS\:.*//g')"
-            status="$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')"
-            ts="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-            if [ "$status" -eq 200 ]; then
-              echo "✅ OK - Status: $status - $ts"
-              break
-            else
-              echo "⚠️ Not OK (try $attempt/${RETRIES}) - Status: $status - $ts"
-              echo "Body: $(echo "$body" | head -c 300)"
-              if [ "$attempt" -gt "${RETRIES}" ]; then
-                if [ "${FAIL_ON_NON_200}" = "true" ]; then
-                  echo "❌ Giving up after ${RETRIES} retries"
-                  exit 1
-                else
-                  echo "ℹ️ Non-200 allowed, continuing without failure"
-                  break
-                fi
-              fi
-              sleep 2
-            fi
-          done
