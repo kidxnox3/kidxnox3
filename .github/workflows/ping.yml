@@ -1,0 +1,28 @@
+name: Ping API
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # รันทุก 5 นาที (UTC)
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call API
+        run: |
+          response=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST https://api.kiddy.wtf/ \
+            -H "Content-Type: application/json" \
+            -d '{"mobile":"0000000000","voucher":"ping"}')
+
+          # แยก body กับ status code
+          body=$(echo "$response" | sed -e 's/HTTPSTATUS\:.*//g')
+          status=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+
+          if [ "$status" -eq 200 ]; then
+            echo "✅ OK - Status: $status"
+          else
+            echo "⚠️ FAIL - Status: $status"
+            echo "Body: $body"
+            exit 1
+          fi
