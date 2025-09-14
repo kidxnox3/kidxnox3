@@ -2,8 +2,12 @@ name: Ping API
 
 on:
   schedule:
-    - cron: "* * * * *"   # ทุก 1 นาที
+    - cron: "* * * * *"   # รันทุก 1 นาที (UTC)
   workflow_dispatch:
+
+concurrency:
+  group: ping-api
+  cancel-in-progress: false
 
 jobs:
   ping:
@@ -15,13 +19,14 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"mobile":"0000000000","voucher":"ping"}')
 
+          # แยก body กับ status code
           body=$(echo "$response" | sed -e 's/HTTPSTATUS\:.*//g')
           status=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
 
           if [ "$status" -eq 200 ]; then
-            echo "✅ OK - Status: $status"
+            echo "✅ OK - Status: $status - $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           else
-            echo "⚠️ FAIL - Status: $status"
+            echo "⚠️ FAIL - Status: $status - $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
             echo "Body: $body"
             exit 1
           fi
