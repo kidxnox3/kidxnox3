@@ -2,7 +2,7 @@ name: Ping API
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # รันทุก 5 นาที (UTC)
+    - cron: "* * * * *"   # ทุก 1 นาที (UTC)
   workflow_dispatch:
 
 concurrency:
@@ -27,7 +27,6 @@ jobs:
 
           if [ "$status" -eq 200 ]; then
             echo "✅ OK - Status: $status - $ts"
-            # ส่งแจ้ง Discord ทุกครั้ง (Success)
             if [ -n "$DISCORD_WEBHOOK" ]; then
               curl -H "Content-Type: application/json" \
                    -d "{\"content\":\"✅ OK - Status: $status - $ts\"}" \
@@ -36,7 +35,6 @@ jobs:
           else
             echo "⚠️ FAIL - Status: $status - $ts"
             echo "Body: $body"
-            # แจ้ง Discord เวลา Fail
             if [ -n "$DISCORD_WEBHOOK" ]; then
               curl -H "Content-Type: application/json" \
                    -d "{\"content\":\"⚠️ FAIL - Status: $status - $ts\nBody: $(echo "$body" | head -c 150)\"}" \
