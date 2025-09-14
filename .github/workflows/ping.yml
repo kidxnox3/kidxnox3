@@ -2,7 +2,7 @@ name: Ping API
 
 on:
   schedule:
-    - cron: "* * * * *"   # รันทุก 1 นาที (UTC)
+    - cron: "* * * * *"  
   workflow_dispatch:
 
 concurrency:
