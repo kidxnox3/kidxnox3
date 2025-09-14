@@ -2,7 +2,7 @@ name: Ping API
 
 on:
   schedule:
-    - cron: "* * * * *"   # ทุก 1 นาที (UTC)
+    - cron: "* * * * *"   # รันทุก 1 นาที (UTC)
   workflow_dispatch:
 
 concurrency:
@@ -12,8 +12,14 @@ concurrency:
 jobs:
   ping:
     runs-on: ubuntu-latest
+
+    # ระบุ environment เพื่อใช้ Environment Secret
+    environment:
+      name: prod
+
     env:
       DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
     steps:
       - name: Call API
         run: |
