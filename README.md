@@ -1,7 +1,6 @@
 <!-- ====== BADGES ====== -->
 <p align="center">
   <img src="https://komarev.com/ghpvc/?username=kidxnox3&label=Visitors&color=0e75b6&style=flat" alt="profile views" />
-  <img src="https://img.shields.io/badge/Status-Always%20Learning-0ea5b6?style=flat&logo=openai&logoColor=white" alt="status" />
 </p>
 
 <!-- ====== SNAKE (DARK/LIGHT AUTO) ====== -->
